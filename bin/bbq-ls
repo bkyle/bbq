@@ -1,0 +1,27 @@
+#!/usr/bin/python
+
+if '__file__' in locals():
+    import os
+    import sys
+    sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../lib'))
+
+import bbq
+import optparse
+import time
+
+parser = optparse.OptionParser(usage="%prog [options] queue", description="Lists all of the messages in the given queue.  If no queue is given the current directory is used.")
+(options, args) = parser.parse_args()
+
+if len(args) == 0:
+    directory = '.'
+else:
+    directory = args[0]
+
+if not bbq.is_queue(directory):
+    print "%s does not contain a value queue." % directory
+    sys.exit(1)
+
+queue = bbq.Queue(directory)
+for item in queue.list():
+    parts = bbq.parse_message_id(item)
+    print "%2i\t%s\t%s\t%s" % (parts.get('priority'), parts.get('id'), time.strftime("%b %d %Y %H:%M:%S", parts.get('created')), parts.get('pid'))

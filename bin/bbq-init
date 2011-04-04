@@ -1,0 +1,21 @@
+#!/usr/bin/python
+
+if '__file__' in locals():
+    import os
+    import sys
+    sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../lib'))
+
+import bbq
+import optparse
+
+parser = optparse.OptionParser(usage="%prog [options] [queue] [queue...]", description="Creates a new queue in the given directory, or the current directory if none is provided.")
+(options,args) = parser.parse_args()
+
+queues = args
+
+if (len(args) == 0):
+    queues = ['.']
+
+for queue in queues:
+    bbq.Queue(queue)
+

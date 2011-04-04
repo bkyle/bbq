@@ -1,0 +1,33 @@
+#!/usr/bin/python
+
+if '__file__' in locals():
+    import os
+    import sys
+    sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../lib'))
+
+import bbq
+import optparse
+from StringIO import StringIO
+
+parser = optparse.OptionParser(usage="%prog [options] queue", description="Enqueues a message read from stdin in the given queue.")
+parser.add_option('-p', '--priority', type="int", default=5, help="Priority of the message. Default: 5")
+(options,args) = parser.parse_args()
+
+if len(args) == 0:
+    directory = '.'
+else:
+    directory = args[0]
+
+if not bbq.is_queue(directory):
+    print "%s does not contain a value queue." % directory
+    sys.exit(1)
+
+buffer = StringIO()
+while True:
+    line = sys.stdin.readline()
+    if line == '':
+        break
+    buffer.write(line)
+
+queue = bbq.Queue(directory)
+queue.enqueue(buffer.getvalue(), options.priority)
