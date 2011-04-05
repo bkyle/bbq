@@ -24,4 +24,4 @@ if not bbq.is_queue(directory):
 queue = bbq.Queue(directory)
 for item in queue.list():
     parts = bbq.parse_message_id(item)
-    print "%2i\t%s\t%s\t%s" % (parts.get('priority'), parts.get('id'), time.strftime("%b %d %Y %H:%M:%S", parts.get('created')), parts.get('pid'))
+    print "%2i %s %s %s" % (parts.get('priority'), time.strftime("%b %d %Y %H:%M:%S", parts.get('created')), parts.get('pid'), parts.get('id'))

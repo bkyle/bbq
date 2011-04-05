@@ -7,27 +7,23 @@ if '__file__' in locals():
 
 import bbq
 import optparse
-from StringIO import StringIO
 
 parser = optparse.OptionParser(usage="%prog [options] queue", description="Enqueues a message read from stdin in the given queue.")
 parser.add_option('-p', '--priority', type="int", default=4, help="Priority of the message between 0 and 9. Default: 4")
 (options,args) = parser.parse_args()
 
-if len(args) == 0:
+
+if len(args) == 1:
     directory = '.'
-else:
+    uuid = args[0]
+elif len(args) == 2:
     directory = args[0]
+    uuid = args[1]
 
 if not bbq.is_queue(directory):
     print "%s does not contain a value queue." % directory
     sys.exit(1)
 
-buffer = StringIO()
-while True:
-    line = sys.stdin.readline()
-    if line == '':
-        break
-    buffer.write(line)
-
 queue = bbq.Queue(directory)
-queue.enqueue(buffer.getvalue(), options.priority)
+message_id = queue.get_message_id(uuid)
+print queue.read(message_id)

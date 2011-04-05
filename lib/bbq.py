@@ -3,6 +3,8 @@
 import os
 import uuid
 import time
+import glob
+import StringIO
 
 def is_queue(directory):
     """Determines if the passed directory is a valid queue."""
@@ -16,7 +18,7 @@ def init(directory):
     """Creates a new queue in the passed directory."""
     Queue(directory, init=True)
 
-def _generate_message_id(priority=5):
+def _generate_message_id(priority=4):
     """Generates a new message id that is guaranteed to be unique.  No
     checks are done to ensure that the path does not already exist."""
     
@@ -95,7 +97,7 @@ class Queue:
         os.link(tmp_path, cur_path)
         os.unlink(tmp_path)
 
-    def enqueue(self, message, priority=5):
+    def enqueue(self, message, priority=4):
         """Enqueues the passed message with the given priority."""
         self._enqueue(message, priority)
 
@@ -105,4 +107,42 @@ class Queue:
         messages.sort()
         return messages
 
+    def claim(self, message_id):
+        """Claims the passed message for the current process.  If the message cannot be
+        claimed, return an error."""
+        pass
+
+    def unclaim(self, message_id):
+        """Unclaims the passed message, returning it to the pool of messages that can be
+        claimed by other processes."""
+        pass
+
+    def _check_authority(self, message_id):
+        """Ensures that the current process owns the passed message."""
+
+    def read(self, message_id):
+        """Reads the contents of the passed message."""
+        # TODO: Locate the message, it might be in cur/ or clm.
+        buffer = StringIO.StringIO()
+        path = os.path.join(self.cur, message_id)
+        file = open(path, "r")
+        while True:
+            line = file.readline()
+            if (line == ''):
+                break
+            buffer.write(line)
+        file.close()
+        return buffer.getvalue()
+        
+    def get_message_id(self, uuid):
+        """Finds a message by the unique id component of the message id, returning the message text."""
+        files = glob.glob("%s/*%s*" % (self.cur, uuid))
+        if len(files) == 0:
+            return None
+        elif len(files) > 1:
+            raise "Inconsistent index, more than one message has the same unique id."
+        else:
+            message_id = files[0]
+            return message_id
+        
 
