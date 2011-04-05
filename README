@@ -1,0 +1,49 @@
+bbq
+Persistent queueing system for Unix influenced by Git and Maildir
+Bryan Kyle <bryan.kyle@gmail.com>
+
+Overview
+========
+
+BBQ is a queueing system for Unix designed using the principles behind both Git and Maildir.
+
+
+What's Missing:
+
+- A way to dequeue messages (an agent) and supporting configuration.
+- Lots of testing.
+
+How BBQ Works
+=============
+
+- .bbq directory contains queued messages
+- .bbq/tmp contains messages that are being enqueued.
+- .bbq/cur contains messages that have been successfully queued and are ready for dequeuing.
+- .bbq/clm contains messages that have been claimed for processing
+
+- config file contains configuration for how messages are dequeued what what program to run?
+- programs and support are contained within the root of the queue directory?
+- should there be a bin directory with symlinks to bbq programs to start the agent?
+
+
+
+Layout of a BBQ directory
+=========================
+
+
+Getting Started
+===============
+
+Creating a queue: 
+$ mkdir myqueue
+$ cd myqueue
+$ bbq init
+
+Enqueueing a message:
+$ bbq enqueue path/to/myqueue
+type your message here
+^D
+
+
+
+
