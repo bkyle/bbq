@@ -8,11 +8,18 @@ import StringIO
 
 def is_queue(directory):
     """Determines if the passed directory is a valid queue."""
+
     directory = os.path.abspath(directory)
-    tmp = os.path.join(directory, 'tmp')
-    cur = os.path.join(directory, 'cur')
-    clm = os.path.join(directory, 'clm')
-    return os.path.exists(directory) and os.path.exists(tmp) and os.path.exists(cur) and os.path.exists(clm)    
+    dotbbq = os.path.join(directory, '.bbq')
+    tmp = os.path.join(dotbbq, 'tmp')
+    cur = os.path.join(dotbbq, 'cur')
+    clm = os.path.join(dotbbq, 'clm')
+
+    return os.path.exists(directory) and \
+        os.path.exists(dotbbq) and \
+        os.path.exists(tmp) and \
+        os.path.exists(cur) and \
+        os.path.exists(clm)    
 
 def init(directory):
     """Creates a new queue in the passed directory."""
@@ -43,15 +50,17 @@ def parse_message_id(message_id):
 class Queue:
     
     directory = None
+    dotbbq = None
     tmp = None
     cur = None
     clm = None
 
     def __init__(self, directory, init=True):
         self.directory = os.path.abspath(directory)
-        self.tmp = os.path.join(self.directory, 'tmp')
-        self.cur = os.path.join(self.directory, 'cur')
-        self.clm = os.path.join(self.directory, 'clm')
+        self.dotbbq = os.path.join(self.directory, '.bbq')
+        self.tmp = os.path.join(self.dotbbq, 'tmp')
+        self.cur = os.path.join(self.dotbbq, 'cur')
+        self.clm = os.path.join(self.dotbbq, 'clm')
 
         if (init):
             self.init();
@@ -59,6 +68,9 @@ class Queue:
     def init(self):
         """Creates all of the necessary directories within the given queue directory.  If
         any of the operations fails an exception will be thrown."""
+        if not os.path.exists(self.dotbbq):
+            os.makedirs(self.dotbbq, 0777)
+
         if not os.path.exists(self.tmp):
             os.makedirs(self.tmp, 0777)
 
