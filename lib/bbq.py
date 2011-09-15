@@ -133,7 +133,7 @@ class QueueDir:
             return False
         
 
-    def get(self, key):
+    def get(self, key, token=os.getpid()):
         """Return a message with the passed key, or None if the message cannot be found or cannot be locked.
         If no message message exists a KeyError
         exception is raised."""
@@ -142,7 +142,9 @@ class QueueDir:
         
         self.lock(key)
         
-        matches = glob.glob(os.path.join(self.clm, "%s-%s-*" % (key, os.getpid())))
+        pattern = os.path.join(self.clm, "%s-%s-*" % (key, token))
+        matches = glob.glob(pattern)
+        
         if len(matches) == 1:
             f = open(matches[0], "r")
             data = "".join(f.readlines())

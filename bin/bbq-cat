@@ -9,6 +9,7 @@ import bbq
 import optparse
 
 parser = optparse.OptionParser(usage="%prog [options] queue", description="Enqueues a message read from stdin in the given queue.")
+parser.add_option('-t', '--token', type="string", default=os.uname()[1].split(".")[0], help="The token to use when locking the message.  Default: %s" % os.uname()[1].split(".")[0])
 (options,args) = parser.parse_args()
 
 
@@ -24,5 +25,5 @@ if not bbq.is_queue(directory):
     sys.exit(1)
 
 queue = bbq.QueueDir(directory)
-message = queue.get(uuid)
+message = queue.get(uuid, options.token)
 print message.message
