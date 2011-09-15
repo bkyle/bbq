@@ -1,0 +1,43 @@
+#!/usr/bin/python
+
+if '__file__' in locals():
+    import os
+    import sys
+    sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../lib'))
+
+import bbq
+import optparse
+
+parser = optparse.OptionParser(usage="%prog [options] queue message", description="Locks a message.")
+parser.add_option('-t', '--token', type="string", default=os.uname()[1].split(".")[0], help="The token to use when locking the message.  Default: %s" % os.uname()[1].split(".")[0])
+parser.add_option('-n', '--next', action="store_true", default=False, help="Locks the next available message in the queue and prints its ID.")
+(options,args) = parser.parse_args()
+
+if len(args) == 0:
+    directory = '.'
+elif len(args) == 1:
+    directory = '.'
+    uuid = args[0]
+elif len(args) == 2:
+    directory = args[0]
+    uuid = args[1]
+
+if not bbq.is_queue(directory):
+    print "%s does not contain a value queue." % directory
+    sys.exit(1)
+
+queue = bbq.QueueDir(directory)
+
+if options.next:
+    # Lock the first available message
+    for key in queue.keys():
+        if queue.lock(key, token=options.token):
+            print key
+            sys.exit(0)
+    sys.exit(1)
+    
+else:
+    if queue.lock(uuid, token=options.token):
+        sys.exit(0)
+    else:
+        sys.exit(1)

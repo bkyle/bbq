@@ -17,5 +17,5 @@ if (len(args) == 0):
     queues = ['.']
 
 for queue in queues:
-    bbq.Queue(queue)
+    bbq.QueueDir(queue)
 

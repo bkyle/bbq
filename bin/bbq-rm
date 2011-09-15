@@ -1,0 +1,35 @@
+#!/usr/bin/python
+
+if '__file__' in locals():
+    import os
+    import sys
+    sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../lib'))
+
+import bbq
+import optparse
+
+parser = optparse.OptionParser(usage="%prog [options] queue message", description="Removes a message.")
+parser.add_option('-t', '--token', type="string", default=os.uname()[1].split(".")[0], help="Token to use for locked messages. Default: %s" % os.uname()[1].split(".")[0])
+parser.add_option('-f', '--force', action="store_true", default=False, help="Forcibly removes the message from the queue")
+(options,args) = parser.parse_args()
+
+if len(args) == 0:
+    parser.print_help()
+    sys.exit(0)
+
+if len(args) == 1:
+    directory = '.'
+    uuid = args[0]
+elif len(args) == 2:
+    directory = args[0]
+    uuid = args[1]
+
+if not bbq.is_queue(directory):
+    print "%s does not contain a value queue." % directory
+    sys.exit(1)
+
+queue = bbq.QueueDir(directory)
+if queue.remove(uuid, token=options.token, force=options.force):
+    sys.exit(0)
+else:
+    sys.exit(1)

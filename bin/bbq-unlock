@@ -8,7 +8,8 @@ if '__file__' in locals():
 import bbq
 import optparse
 
-parser = optparse.OptionParser(usage="%prog [options] queue", description="Enqueues a message read from stdin in the given queue.")
+parser = optparse.OptionParser(usage="%prog [options] queue message", description="Unlocks a message.")
+parser.add_option('-t', '--token', type="string", default=os.uname()[1].split(".")[0], help="The token to use when locking the message.  Default: %s" % os.uname()[1].split(".")[0])
 (options,args) = parser.parse_args()
 
 
@@ -24,5 +25,7 @@ if not bbq.is_queue(directory):
     sys.exit(1)
 
 queue = bbq.QueueDir(directory)
-message = queue.get(uuid)
-print message.message
+if queue.unlock(uuid, token=options.token, force=False):
+    sys.exit(0)
+else:
+    sys.exit(1)

@@ -7,70 +7,46 @@ import glob
 import StringIO
 
 def is_queue(directory):
-    """Determines if the passed directory is a valid queue."""
-
-    directory = os.path.abspath(directory)
-    dotbbq = os.path.join(directory, '.bbq')
-    tmp = os.path.join(dotbbq, 'tmp')
-    cur = os.path.join(dotbbq, 'cur')
-    clm = os.path.join(dotbbq, 'clm')
-
-    return os.path.exists(directory) and \
-        os.path.exists(dotbbq) and \
-        os.path.exists(tmp) and \
-        os.path.exists(cur) and \
-        os.path.exists(clm)    
-
-def init(directory):
-    """Creates a new queue in the passed directory."""
-    Queue(directory, init=True)
-
-def _generate_message_id(priority=4):
-    """Generates a new message id that is guaranteed to be unique.  No
-    checks are done to ensure that the path does not already exist."""
     
-    return "%s.%s.%s.%s" % (priority, str(int(time.time())), uuid.uuid1(), os.getpid())
+        tmp = os.path.join(directory, 'tmp')
+        cur = os.path.join(directory, 'cur')
+        clm = os.path.join(directory, 'clm')
+        if os.path.exists(tmp) and \
+                os.path.exists(cur) and \
+                os.path.exists(clm):
+            return True
+        else:
+            return False
 
-def parse_message_id(message_id):
-    """Parses the given message id and returns a dictionary containing
-    its components.  The dictionary will contain the following keys:
+def generate_message_id():
+    return "%s" % (str(uuid.uuid1()).replace("-", ""))
 
-       priority - The priority of the message.
-       created - A unix timestamp representing when the message was enqueued.
-       id - the unique ID of the message.
-       pid - PID of the process that enqueued the message."""
+class Message:
+    """Represents a message in the queue.  The <code>message</code> property of
+    this class contains the message payload."""
+    def __init__(self, message):
+        self.message = message;
 
-    components = os.path.basename(message_id).split('.')
-    return { 'priority': int(components[0]), 
-             'created': time.gmtime(float(components[1])),
-             'id': components[2],
-             'pid': int(components[3]) }
-            
+class ClaimedError:
 
-class Queue:
+    def __init__(self, key):
+        self.key = key
+
+class QueueDir:
+    """A queue in Queuedir format.
     
-    directory = None
-    dotbbq = None
-    tmp = None
-    cur = None
-    clm = None
+    TOOD: This class should implement the operator-overloaded methods as mailbox.Mailbox.
+    """
 
-    def __init__(self, directory, init=True):
-        self.directory = os.path.abspath(directory)
-        self.dotbbq = os.path.join(self.directory, '.bbq')
-        self.tmp = os.path.join(self.dotbbq, 'tmp')
-        self.cur = os.path.join(self.dotbbq, 'cur')
-        self.clm = os.path.join(self.dotbbq, 'clm')
-
-        if (init):
-            self.init();
-    
-    def init(self):
-        """Creates all of the necessary directories within the given queue directory.  If
-        any of the operations fails an exception will be thrown."""
-        if not os.path.exists(self.dotbbq):
-            os.makedirs(self.dotbbq, 0777)
-
+    def __init__(self, directory):
+        self.directory = directory;
+        self.tmp = os.path.join(self.directory, 'tmp')
+        self.cur = os.path.join(self.directory, 'cur')
+        self.clm = os.path.join(self.directory, 'clm')
+        self._initialize_queuedir()
+        
+    def _initialize_queuedir(self):
+        """Creates all of the required directories under the instance's root directory."""
         if not os.path.exists(self.tmp):
             os.makedirs(self.tmp, 0777)
 
@@ -79,23 +55,19 @@ class Queue:
 
         if not os.path.exists(self.clm):
             os.makedirs(self.clm, 0777)
-
-    def _dequeue(self):
-        # find a file that needs to be dequeued
-        os.listdir(self.cur)
-
-    def dequeue(self):
-        pass
-
-    def _enqueue(self, message, priority=5):
+        
+    def add(self, message):
+        """Adds the passed message to the queue.  The message should be an instance of
+        bbq.Message.  Other formats may be accepted later."""
+        
         attempts = 0
         while True:
             if (attempts > 10):
-                break;
-
-            message_id = _generate_message_id(priority)
-            cur_path = os.path.join(self.cur, message_id)
-            tmp_path = os.path.join(self.tmp, message_id)
+                break
+                
+            id = generate_message_id()
+            cur_path = os.path.join(self.cur, id)
+            tmp_path = os.path.join(self.tmp, id)
 
             if (not os.path.exists(tmp_path) and not os.path.exists(cur_path)):
                 break
@@ -103,58 +75,160 @@ class Queue:
             attempts = attempts + 1
 
         file = open(tmp_path, "w")
-        file.write(message)
+        file.write(message.message)
         file.close()
 
-        os.link(tmp_path, cur_path)
-        os.unlink(tmp_path)
+        try:
+            os.link(tmp_path, cur_path)
+            os.unlink(tmp_path)
+        except OSError:
+            # On AFP, os.link does not work, so instead we have to fall back to renaming
+            # which has roughly the same effect.
+            os.rename(tmp_path, cur_path)
+        
+    def iterkeys(self):
+        """Returns an iterator over the message keys."""
+        pass
+    
+    def keys(self, include_locked = False):
+        """Returns a list containing all of the messages in the queue that have not been locked, or have
+        been locked by the current process.  If a list of all messages regardless of their locked status
+        is needed, pass True for include_locked.
 
-    def enqueue(self, message, priority=4):
-        """Enqueues the passed message with the given priority."""
-        self._enqueue(message, priority)
+        Due to the nature of a queue, the list may be out of date by the time the results are returned
+        and used."""
+        
+        cur = glob.glob(os.path.join(self.cur, "*"))
 
-    def list(self):
-        """Lists all of the messages in the queue in the passed format."""
-        messages = os.listdir(self.cur)
-        messages.sort()
+        pid = os.getpid()
+        if include_locked:
+            pid = "*"
+        pattern = os.path.join(self.clm, "*-%s-*" % (pid))
+        clm = glob.glob(pattern)
+        
+        messages = [ os.path.basename(path).split("-")[0] for path in  cur + clm ]
         return messages
+    
+    
+    def remove(self, key, token=os.getpid(), force=False):
+        """Removes the message with the passed key."""
 
-    def claim(self, message_id):
-        """Claims the passed message for the current process.  If the message cannot be
-        claimed, return an error."""
-        pass
-
-    def unclaim(self, message_id):
-        """Unclaims the passed message, returning it to the pool of messages that can be
-        claimed by other processes."""
-        pass
-
-    def _check_authority(self, message_id):
-        """Ensures that the current process owns the passed message."""
-
-    def read(self, message_id):
-        """Reads the contents of the passed message."""
-        # TODO: Locate the message, it might be in cur/ or clm.
-        buffer = StringIO.StringIO()
-        path = os.path.join(self.cur, message_id)
-        file = open(path, "r")
-        while True:
-            line = file.readline()
-            if (line == ''):
-                break
-            buffer.write(line)
-        file.close()
-        return buffer.getvalue()
+        if force:
+            token = "*"
+        pattern = os.path.join(self.clm, "%s-%s-*" % (key, token))
+        matches = glob.glob(pattern)
+        if len(matches) == 1:
+            clm_path = matches[0]
+            try:
+                os.unlink(clm_path)
+                return True
+            except OSError:
+                return False
         
-    def get_message_id(self, uuid):
-        """Finds a message by the unique id component of the message id, returning the message text."""
-        files = glob.glob("%s/*%s*" % (self.cur, uuid))
-        if len(files) == 0:
-            return None
-        elif len(files) > 1:
-            raise "Inconsistent index, more than one message has the same unique id."
-        else:
-            message_id = files[0]
-            return message_id
+        cur_path = os.path.join(self.cur, key)
+        try:
+            os.unlink(cur_path)
+            return True
+        except OSError:
+            return False
         
 
+    def get(self, key):
+        """Return a message with the passed key, or None if the message cannot be found or cannot be locked.
+        If no message message exists a KeyError
+        exception is raised."""
+
+        message = None
+        
+        self.lock(key)
+        
+        matches = glob.glob(os.path.join(self.clm, "%s-%s-*" % (key, os.getpid())))
+        if len(matches) == 1:
+            f = open(matches[0], "r")
+            data = "".join(f.readlines())
+            message = Message(data)
+            f.close()
+
+        self.unlock(key)
+
+        return message
+    
+    def lock(self, key, token=os.getpid()):
+        """Claims the message with the passed key."""
+        
+        # Claiming a message consists of moving the file from the cur directory
+        # into the clm directory.  During the move, the file also needs to be appended
+        # with a unix timestamp, in UTC, of when the message was claimed.  Having the
+        # timestamp means that other well behaved Queuedir queues can unclaim the message
+        # if the message has not been processed by its owner by the specified time.
+        #
+        # If the above operation fails, the exact cause can be determined by stating
+        # looking through the contents of the cur and clm directory.  If there is no file
+        # in the cur directory with the same name as the key, and there is no file in the
+        # clm directory that starts with the key then either the message existed and has
+        # been processed, or the message never existed in the first place.  If ...
+        
+        cur_path = os.path.join(self.cur, key)
+        clm_path = os.path.join(self.clm, "%s-%s-%s" % (key, token, str(int(time.time()))))
+        
+        try:
+            os.rename(cur_path, clm_path)
+        except OSError:
+            return False
+
+        return True
+ 
+    def unlock(self, key, token=os.getpid(), force=False):
+        """Returns a bbq.Message containing the next message in the queue to be worked.
+        If there is no next item this method returns None."""
+
+        # Build up the globbing pattern to find the message in the queue.  Ordinarily
+        # we want to ensure that we only unlock messages that are locked by this process.
+        # However, if we want to forcibly unlock a message we can ignore the pid
+        # in the globbing pattern.
+        if (force):
+            token = "*"
+        pattern = os.path.join(self.clm, "%s-%s-*" % (key, token))
+        matches = glob.glob(pattern)
+        if len(matches) == 0 or len(matches) > 1:
+            return False
+        
+        clm_path = matches[0]
+        cur_path = os.path.join(self.cur, key)
+
+        try:
+            os.rename(clm_path, cur_path)
+            return True
+        except OSError:
+            # If there was a problem renaming the file then either the message
+            # has already been deleted, or it's been unlocked by another process.
+            return False
+
+    def stat(self, key):
+        """Returns information about a particular message.  The result is a tuple
+        of (key, token, created date, expiry date).  If the message cannot be stat'd
+        an empty tuple will be returned.
+        """
+        
+        # TODO: Instead of using globbing across both cur and clm, first check
+        # the cur directory with a direct lookup.  If that fails, use globbing in
+        # clm, which should be a smaller directory.  This will speed up this operation
+        # immensely.        
+        pattern = os.path.join(self.directory, "*/%s*" % key)
+        matches = glob.glob(pattern)
+        if len(matches) == 1:
+            match = matches[0]
+            # We add "--" to the end of the file name so that the destructuring
+            # bind will succeed even if the file has not been locked.
+            (key, token, etime) = (os.path.basename(match) + "--").split("-")[:3]
+            
+            if etime:
+                etime = int(etime)
+            else:
+                etime = ''
+                
+            try:
+                ctime = int(os.stat(match).st_ctime)
+            except OSError:
+                return ()
+            return (key, token, ctime, etime)
