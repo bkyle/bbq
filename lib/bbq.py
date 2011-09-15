@@ -93,7 +93,7 @@ class QueueDir:
         Due to the nature of a queue, the list may be out of date by the time the results are returned
         and used."""
         
-        cur = glob.glob(os.path.join(self.cur, "*"))
+        cur = os.listdir(self.cur)
 
         pid = os.getpid()
         if include_locked:
@@ -101,7 +101,7 @@ class QueueDir:
         pattern = os.path.join(self.clm, "*-%s-*" % (pid))
         clm = glob.glob(pattern)
         
-        messages = [ os.path.basename(path).split("-")[0] for path in  cur + clm ]
+        messages = cur + [ os.path.basename(path).split("-")[0] for path in clm ]
 	messages.sort()
         return messages
     
