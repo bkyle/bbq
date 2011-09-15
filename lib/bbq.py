@@ -27,11 +27,6 @@ class Message:
     def __init__(self, message):
         self.message = message;
 
-class ClaimedError:
-
-    def __init__(self, key):
-        self.key = key
-
 class QueueDir:
     """A queue in Queuedir format.
     
