@@ -212,25 +212,30 @@ class QueueDir:
         an empty tuple will be returned.
         """
         
-        # TODO: Instead of using globbing across both cur and clm, first check
-        # the cur directory with a direct lookup.  If that fails, use globbing in
-        # clm, which should be a smaller directory.  This will speed up this operation
-        # immensely.        
-        pattern = os.path.join(self.directory, "*/%s*" % key)
-        matches = glob.glob(pattern)
-        if len(matches) == 1:
-            match = matches[0]
-            # We add "--" to the end of the file name so that the destructuring
-            # bind will succeed even if the file has not been locked.
-            (key, token, etime) = (os.path.basename(match) + "--").split("-")[:3]
-            
-            if etime:
-                etime = int(etime)
-            else:
-                etime = ''
-                
-            try:
-                ctime = int(os.stat(match).st_ctime)
-            except OSError:
-                return ()
-            return (key, token, ctime, etime)
+	try:
+		# First try to stat the file in cur.  If this succeeds, then we don't
+		# need to check the clm directory at all.
+		ctime = int(os.stat(os.path.join(self.cur, key)).st_ctime)
+		return (key, '', '', ctime)
+	except OSError:
+		# If the message couldn't be found in cur, it must be in clm, or not
+		# at all.
+		pattern = os.path.join(self.clm, "%s*" % key)
+	        matches = glob.glob(pattern)
+	        if len(matches) == 1:
+	            match = matches[0]
+        	    # We add "--" to the end of the file name so that the destructuring
+	            # bind will succeed even if the file has not been locked.
+	            (key, token, etime) = (os.path.basename(match) + "--").split("-")[:3]
+	            
+        	    if etime:
+                	etime = int(etime)
+	            else:
+        	        etime = ''
+                	
+	            try:
+        	        ctime = int(os.stat(match).st_ctime)
+	            except OSError:
+	                return ()
+        	    return (key, token, ctime, etime)
+
