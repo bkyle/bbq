@@ -25,7 +25,7 @@ queue = bbq.QueueDir(directory)
 for key in queue.keys(True):
     stat = queue.stat(key)
     if (stat):
-        print "%s %20s" % (stat[0], stat[1])
+        print "%s %s" % (stat[0], stat[1])
 
 
 #    print "%s" % (key)

@@ -107,6 +107,7 @@ class QueueDir:
         clm = glob.glob(pattern)
         
         messages = [ os.path.basename(path).split("-")[0] for path in  cur + clm ]
+	messages.sort()
         return messages
     
     
